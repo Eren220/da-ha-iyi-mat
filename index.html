@@ -1,0 +1,332 @@
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>4. Sınıf Ajan Quiz Oyunu - Süresiz Versiyon</title>
+<style>
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #222, #444);
+    color: #eee;
+    margin: 0; padding: 0;
+    display: flex; flex-direction: column; align-items: center;
+    min-height: 100vh;
+  }
+  h1 { margin-top: 20px; }
+  .container {
+    background: #222;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 0 15px #000;
+    width: 90%; max-width: 600px;
+    margin: 20px 0;
+    text-align: center;
+  }
+  input[type="text"], input[type="password"], select {
+    font-size: 1.2em;
+    padding: 10px;
+    border-radius: 8px;
+    border: none;
+    width: 80%;
+    margin: 12px 0;
+    color: #333;
+  }
+  button {
+    background: #06f;
+    color: white;
+    font-size: 1.3em;
+    padding: 12px 25px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    box-shadow: 0 0 8px #06f;
+    transition: 0.3s;
+  }
+  button:hover {
+    background: #08f;
+    box-shadow: 0 0 20px #08f;
+  }
+  #nameRgb {
+    margin-top: -8px;
+    font-weight: bold;
+    font-family: monospace;
+    letter-spacing: 2px;
+    animation: rgbFlash 3s linear infinite;
+    user-select: none;
+    color: white;
+  }
+  @keyframes rgbFlash {
+    0%{color:#f00}
+    33%{color:#0f0}
+    66%{color:#00f}
+    100%{color:#f00}
+  }
+  #question {
+    font-size: 1.4em;
+    margin: 20px 0;
+    min-height: 60px;
+  }
+  #answers button {
+    display: block;
+    width: 100%;
+    margin: 8px 0;
+    font-size: 1.2em;
+    background: #555;
+    border-radius: 8px;
+    color: white;
+    padding: 10px;
+    border: none;
+    cursor: pointer;
+    transition: 0.3s;
+  }
+  #answers button:hover {
+    background: #888;
+  }
+  #score {
+    font-size: 1.2em;
+    margin: 15px 0;
+  }
+  #agent {
+    margin: 15px 0;
+    font-size: 3em;
+    user-select: none;
+  }
+  .agent-blue { color: #3af; }
+  .agent-blue.level1 { text-shadow: 0 0 5px #66aaff; }
+  .agent-blue.level2 { text-shadow: 0 0 15px #99bbff; }
+  .agent-red { color: #f33; }
+  .agent-red.level1 { text-shadow: 0 0 5px #ff6666; }
+  .agent-red.level2 { text-shadow: 0 0 15px #ff9999; }
+  .agent-black { color: #aaa; }
+  .agent-black.level1 { text-shadow: 0 0 5px #ccc; }
+  .agent-black.level2 { text-shadow: 0 0 15px #eee; }
+</style>
+</head>
+<body>
+
+<h1>4. Sınıf Ajan Quiz Oyunu - Süresiz</h1>
+
+<!-- Şifre ekranı -->
+<div id="login" class="container">
+  <input type="password" id="passwordInput" placeholder="Şifreyi giriniz" />
+  <button id="passwordBtn">Giriş Yap</button>
+  <div style="color:#f55; margin-top: 10px;" id="passwordError"></div>
+</div>
+
+<!-- Oyuncu adı ve zorluk -->
+<div id="playerSetup" class="container" style="display:none;">
+  <input type="text" id="playerName" placeholder="Adınızı girin..." maxlength="20" autocomplete="off" />
+  <div id="nameRgb">Öğretmenim ve arkadaşlarım için</div>
+  <select id="difficulty">
+    <option value="easy">Kolay</option>
+    <option value="medium">Orta</option>
+    <option value="hard">Zor</option>
+  </select>
+  <button id="startBtn">Başla</button>
+</div>
+
+<!-- Quiz ekranı -->
+<div id="quiz" class="container" style="display:none;">
+  <div id="agent"></div>
+  <div id="score">Puan: 0</div>
+  <div id="question"></div>
+  <div id="answers"></div>
+</div>
+
+<!-- Sonuç ekranı -->
+<div id="result" class="container" style="display:none;">
+  <h2>Oyun Bitti!</h2>
+  <div id="finalScore"></div>
+  <button id="restartBtn">Tekrar Oyna</button>
+</div>
+
+<!-- Sesler -->
+<audio id="correctSound" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg" preload="auto"></audio>
+<audio id="wrongSound" src="https://actions.google.com/sounds/v1/cartoon/boing.ogg" preload="auto"></audio>
+
+<script>
+  // Sabit şifre
+  const password = "1234";
+
+  // Ajanlar tanımı
+  const agents = {
+    easy: { name: "Ajan Mavi", icon: "🕵️‍♂️", class: "agent-blue" },
+    medium: { name: "Ajan Kırmızı", icon: "🕵️‍♀️", class: "agent-red" },
+    hard: { name: "Ajan Siyah", icon: "🕵🏿‍♂️", class: "agent-black" }
+  };
+
+  // Sorular (Kolay, Orta, Zor) - 5'er soru örnek
+  const questions = {
+    easy: [
+      {q:"5 + 3 kaçtır?", a:["7","8","9","6"], correct:1},
+      {q:"10 - 4 kaçtır?", a:["5","6","7","8"], correct:1},
+      {q:"2 x 3 kaçtır?", a:["5","6","7","8"], correct:1},
+      {q:"12 ÷ 4 kaçtır?", a:["2","3","4","6"], correct:1},
+      {q:"Güneş hangi gezegendedir?", a:["Dünya","Mars","Venüs","Güneş'in kendisi"], correct:3}
+    ],
+    medium: [
+      {q:"45 + 37 kaçtır?", a:["81","82","83","84"], correct:1},
+      {q:"63 - 29 kaçtır?", a:["32","33","34","34"], correct:0},
+      {q:"7 x 6 kaçtır?", a:["42","41","43","40"], correct:0},
+      {q:"48 ÷ 8 kaçtır?", a:["5","6","7","8"], correct:1},
+      {q:"Türkiye'nin başkenti neresidir?", a:["İzmir","Ankara","İstanbul","Bursa"], correct:1}
+    ],
+    hard: [
+      {q:"(12 x 4) - 7 kaçtır?", a:["41","40","39","38"], correct:2},
+      {q:"144 ÷ 12 kaçtır?", a:["10","11","12","13"], correct:2},
+      {q:"27 x 3 kaçtır?", a:["79","80","81","82"], correct:2},
+      {q:"Bir üçgenin iç açıları toplamı kaçtır?", a:["180","360","90","270"], correct:0},
+      {q:"Türkiye kaç coğrafi bölgeye ayrılır?", a:["6","7","8","9"], correct:1}
+    ]
+  };
+
+  // Ses elementleri
+  const correctSound = document.getElementById("correctSound");
+  const wrongSound = document.getElementById("wrongSound");
+
+  // DOM elemanları
+  const loginDiv = document.getElementById("login");
+  const passwordInput = document.getElementById("passwordInput");
+  const passwordBtn = document.getElementById("passwordBtn");
+  const passwordError = document.getElementById("passwordError");
+
+  const playerSetup = document.getElementById("playerSetup");
+  const playerNameInput = document.getElementById("playerName");
+  const nameRgb = document.getElementById("nameRgb");
+  const difficultySelect = document.getElementById("difficulty");
+  const startBtn = document.getElementById("startBtn");
+
+  const quizDiv = document.getElementById("quiz");
+  const agentDiv = document.getElementById("agent");
+  const scoreDiv = document.getElementById("score");
+  const questionDiv = document.getElementById("question");
+  const answersDiv = document.getElementById("answers");
+
+  const resultDiv = document.getElementById("result");
+  const finalScoreDiv = document.getElementById("finalScore");
+  const restartBtn = document.getElementById("restartBtn");
+
+  let playerName = "";
+  let difficulty = "easy";
+  let score = 0;
+  let currentQuestionIndex = 0;
+
+  // RGB yazısının renkleri değişsin
+  playerNameInput.addEventListener("input", () => {
+    if (playerNameInput.value.trim() === "") {
+      nameRgb.textContent = "Öğretmenim ve arkadaşlarım için";
+    } else {
+      nameRgb.textContent = playerNameInput.value.trim();
+    }
+  });
+
+  // Şifre doğrulama
+  passwordBtn.onclick = () => {
+    if(passwordInput.value === password){
+      loginDiv.style.display = "none";
+      playerSetup.style.display = "block";
+      passwordError.textContent = "";
+    } else {
+      passwordError.textContent = "Yanlış şifre! Tekrar deneyin.";
+    }
+  };
+
+  // Oyunu başlat
+  startBtn.onclick = () => {
+    const name = playerNameInput.value.trim();
+    if(name.length < 2){
+      alert("Lütfen geçerli bir isim girin.");
+      return;
+    }
+    playerName = name;
+    difficulty = difficultySelect.value;
+    playerSetup.style.display = "none";
+    startQuiz();
+  };
+
+  function startQuiz(){
+    score = 0;
+    currentQuestionIndex = 0;
+    quizDiv.style.display = "block";
+    resultDiv.style.display = "none";
+    updateAgent();
+    updateScore();
+    showQuestion();
+  }
+
+  // Ajan ikonunu güncelle
+  function updateAgent(){
+    const agent = agents[difficulty];
+    agentDiv.textContent = agent.icon + " " + agent.name;
+    agentDiv.className = agent.class;
+    // Puan arttıkça ışık efekti
+    if(score > 15) agentDiv.classList.add("level2");
+    else if(score > 7) agentDiv.classList.add("level1");
+    else {
+      agentDiv.classList.remove("level1");
+      agentDiv.classList.remove("level2");
+    }
+  }
+
+  // Skoru göster
+  function updateScore(){
+    scoreDiv.textContent = `Puan: ${score}`;
+    updateAgent();
+  }
+
+  // Soruyu göster
+  function showQuestion(){
+    const qList = questions[difficulty];
+    if(currentQuestionIndex >= qList.length){
+      endGame();
+      return;
+    }
+    const q = qList[currentQuestionIndex];
+    questionDiv.textContent = q.q;
+    answersDiv.innerHTML = "";
+    q.a.forEach((answer, i) => {
+      const btn = document.createElement("button");
+      btn.textContent = answer;
+      btn.onclick = () => checkAnswer(i);
+      answersDiv.appendChild(btn);
+    });
+  }
+
+  // Cevabı kontrol et
+  function checkAnswer(selectedIndex){
+    const q = questions[difficulty][currentQuestionIndex];
+    if(selectedIndex === q.correct){
+      score++;
+      correctSound.play();
+    } else {
+      wrongSound.play();
+    }
+    currentQuestionIndex++;
+    updateScore();
+    if(currentQuestionIndex < questions[difficulty].length){
+      showQuestion();
+    } else {
+      endGame();
+    }
+  }
+
+  // Oyunu bitir
+  function endGame(){
+    quizDiv.style.display = "none";
+    resultDiv.style.display = "block";
+    finalScoreDiv.textContent = `${playerName}, skorun: ${score} / ${questions[difficulty].length}`;
+  }
+
+  // Tekrar oyna
+  restartBtn.onclick = () => {
+    playerSetup.style.display = "block";
+    resultDiv.style.display = "none";
+    playerNameInput.value = "";
+    nameRgb.textContent = "Öğretmenim ve arkadaşlarım için";
+  };
+</script>
+
+</body>
+</html>
